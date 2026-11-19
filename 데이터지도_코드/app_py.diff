@@ -1,0 +1,25 @@
+diff --git a/app.py b/app.py
+index 643f506..b77c70c 100644
+--- a/app.py
++++ b/app.py
+@@ -16,7 +16,7 @@ import yaml
+ 
+ from agent import llm, steps
+ from agent.state_machine import Session
+-from tools import export_flow, freshness
++from tools import data_map, export_flow, freshness
+ from tools import report as rpt
+ from tools.export_check import rules as export_rules
+ from tools.season_wifi import summary as wifi_summary
+@@ -300,6 +300,11 @@ def show_diagnosis(s: Session):
+     st.markdown('<div class="jj-card">' + "".join(f"<p>• {esc(x)}</p>" for x in s.outputs["sentences"]) + "</div>",
+                 unsafe_allow_html=True)
+ 
++    section("이 답변의 데이터 지도")
++    hub_ids = [int(x["hub_id"]) for r in sel.values() for x in r.sources if str(x.get("hub_id", "")).isdigit()]
++    data_map.show_answer(hub_ids, [s.area, *list(s.compare)])
++    st.caption("주황 원이 이번 답변에 쓴 자료, 주황 선은 같은 지역 단위·겹치는 기간으로 결합할 수 있는 관계입니다. 자료를 누르면 설명과 허브 링크가 나옵니다.")
++
+ 
+ def _abs(f: str) -> Path:
+     return Path(f) if Path(f).is_absolute() else ROOT / f

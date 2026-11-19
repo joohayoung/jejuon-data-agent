@@ -1,0 +1,7 @@
+.env
+.venv/
+__pycache__/
+metrics/
+data/graph/api_cache.sqlite
+data/graph/file_cache.sqlite
+data/graph/raw/

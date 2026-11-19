@@ -1,0 +1,58 @@
+# 분석 관점(렌즈): 질문 하나에 지표 여러 개를 함께 보여 줘서 "진단표"를 만든다.
+# - 지표는 데이터가 아니라 '개념'으로 적는다. 실제 자료·컬럼은 지식 그래프가 고른다(특정 데이터에 묶이지 않음).
+# - {업종}은 질문의 업종 값으로 바뀐다. 업종이 없으면 need_filter가 있는 지표는 건너뛴다.
+# - 새 분야(관광·환경 등)를 깊게 보고 싶으면 여기에 렌즈를 하나 더 적으면 된다.
+# - '외국인/내국인 방문지표 비율' = 외국인 방문지표 ÷ 내국인 방문지표 × 100 (전체 중 외국인 비중이 아님)
+# - 기간: 렌즈 안에 스냅샷 자료(예: 상가 2025-09-18)가 있으면 다른 지표도 그 달로 맞춘다(같은 시점 비교).
+
+lenses:
+  상권:
+    title: "상권·창업 진단"
+    when:
+      words: [창업, 가게, 장사, 매장, 점포, 상권, 차리, 열까, 오픈, 경쟁, 많을까, 많아, 포화]
+      concepts: [점포수]
+    indicators:
+      - name: "{업종} 점포 수"
+        num: {concept: 점포수, filter: 업종}
+        need_filter: true
+      - name: "경쟁 밀도(방문지표 1만당 {업종} 점포)"
+        num: {concept: 점포수, filter: 업종}
+        den: {concept: 방문인구}
+        scale: 10000
+        unit: "점포/방문지표 1만"
+        digits: 2
+        need_filter: true
+      - name: "수요 규모(일평균 방문지표)"
+        num: {concept: 방문인구}
+      - name: "주민 대비 점포(거주지표 1만당 {업종} 점포)"
+        num: {concept: 점포수, filter: 업종}
+        den: {concept: 거주인구}
+        scale: 10000
+        unit: "점포/거주지표 1만"
+        digits: 2
+        need_filter: true
+      - name: "외국인/내국인 방문지표 비율"
+        num: {concept: 외국인방문인구}
+        den: {concept: 방문인구}
+        scale: 100
+        unit: "%"
+        digits: 1
+
+  인구·방문:
+    title: "인구·방문 진단"
+    when:
+      words: [유동인구, 방문객, 사람, 붐비, 북적, 몰리, 인구, 관광객, 외국인]
+      concepts: [방문인구, 거주인구, 근무인구, 외국인방문인구]
+    indicators:
+      - name: "일평균 방문지표"
+        num: {concept: 방문인구}
+      - name: "일평균 거주지표"
+        num: {concept: 거주인구}
+      - name: "일평균 근무지표"
+        num: {concept: 근무인구}
+      - name: "외국인/내국인 방문지표 비율"
+        num: {concept: 외국인방문인구}
+        den: {concept: 방문인구}
+        scale: 100
+        unit: "%"
+        digits: 1
