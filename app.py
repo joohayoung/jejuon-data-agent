@@ -2,7 +2,7 @@
 
 실행: streamlit run app.py
 - 질문 → 로컬 LLM이 정해진 어휘로 해석 → 지식 그래프가 허브 1,259종 중 필요한 자료를 고름
-  → 코드가 43개 읍면동 전체를 계산·판정 → 진단 카드·그래프·쉬운 말 요약·데이터 지도.
+  → 코드가 43개 읍면동 전체를 계산·판정 → 로컬 LLM이 계산 결과로 쉬운 말 답변(숫자 검사) → 진단 카드·그래프·데이터 지도.
 - 모든 수치는 코드가 계산하고, 지표마다 허브 자료 번호·기준 시점을 붙인다.
 """
 from __future__ import annotations
@@ -19,6 +19,7 @@ from agent import llm
 from graph import access as da
 from graph import charts
 from graph import engine as en
+from graph import narrate
 from graph import pipeline as pp
 from graph import interpret as it
 from graph.interpret import interpret, normalize_place
@@ -65,7 +66,7 @@ def hero():
   <div class="eyebrow">제주빅데이터센터 · 도민 데이터 상담</div>
   <div class="jj-brand"><span class="logo">{LOGO_SVG}</span><b>JEJU<span>:ON</span></b><i></i><em>제주 데이터 동네상담소</em></div>
   <h1>우리 동네 궁금한 거, 말로 물어봅서.</h1>
-  <p>지식 그래프가 제주데이터허브 자료 {n_ds:,}종 중 필요한 것을 골라, 43개 읍면동을 직접 계산해 근거와 함께 보여 드립니다.</p>
+  <p>에이전트가 제주데이터허브 자료 {n_ds:,}종 중 필요한 것을 골라, 43개 읍면동을 직접 계산해 근거와 함께 보여 드립니다.</p>
 </div>""", unsafe_allow_html=True)
 
 
@@ -125,6 +126,16 @@ def start(q: str):
 def run(q: str, slots: dict):
     with st.spinner("지식 그래프로 자료를 고르고 43개 읍면동을 계산하고 있어요… (처음 받는 자료는 1~2분 걸릴 수 있어요)"):
         res = pp.run(q, slots)
+    with st.spinner("계산 결과를 바탕으로 답변을 쓰고 있어요… (로컬 모델)"):
+        nar = narrate.answer(res)
+    res.narrative = nar
+    calls = (nar.get("stats") or {}).get("calls") or [{}]
+    res.log.append({"stage": "종합 답변", "by": "모델", "sec": nar.get("sec", 0),
+                    "prompt_eval_count": calls[-1].get("prompt_eval_count"), "eval_count": calls[-1].get("eval_count"),
+                    "detail": ("숫자 검사 통과" if nar["ok"] else "코드 결론 사용 — " + "; ".join(nar["errors"]))
+                              + f" / 코드 결론: {res.lead}"
+                              + "".join(f" / {i + 1}차 답변: {x['text']}" + (f" [{'; '.join(x['errors'])}]" if x["errors"] else "")
+                                        for i, x in enumerate(nar.get("tries") or []))})
     rec = ss.get("interp") or {}
     rv = rec.get("review") or {}
     detail = f"모델 원문 {rec.get('raw')}"
@@ -225,7 +236,14 @@ def show_result(res: pp.Result):
     # 1) 답 카드: 결론 한 줄 + 해설(일상 말 ↔ 자료 뜻) + 오래된 자료 경고
     notes = "".join(f'<div class="n">{esc(n)}</div>' for n in res.notes_top)
     warns = "".join(f'<div class="w">{esc(w)}</div>' for w in res.warnings)
-    st.markdown(f'<div class="jj-answer"><div class="a">{esc(res.lead)}</div>{notes}{warns}</div>', unsafe_allow_html=True)
+    nar = getattr(res, "narrative", None) or {}
+    if nar.get("ok"):
+        # 로컬 AI가 쓴 결론 + 근거(숫자는 계산 결과와 대조 완료)
+        head = (f'<div class="a">{esc(nar["answer"])}</div><div class="r">{esc(nar["reason"])}</div>'
+                f'<div class="by">로컬 AI({esc(llm.model_name())}) 답변 · 숫자는 계산 결과와 대조해 확인</div>')
+    else:
+        head = f'<div class="a">{esc(res.lead)}</div>'
+    st.markdown(f'<div class="jj-answer">{head}{notes}{warns}</div>', unsafe_allow_html=True)
     if not res.metrics:
         for l in res.limits:
             st.caption(l)
@@ -274,7 +292,7 @@ def show_result(res: pp.Result):
                 st.write("")
     st.caption("판정은 제주 읍면동 사이의 상대 위치(상위 25% 높음 · 하위 25% 낮음)이며, 좋고 나쁨이나 결정을 정해 주는 결과가 아닙니다.")
 
-    section("쉬운 말 요약")
+    section("데이터 분석 근거")
     st.markdown('<div class="jj-card">' + "".join(f"<p>• {esc(x)}</p>" for x in res.sentences) + "</div>", unsafe_allow_html=True)
 
     section("이 답변의 데이터 지도")
@@ -317,7 +335,8 @@ def report_html(res: pp.Result) -> str:
 table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #E2E7ED;padding:6px 8px;font-size:14px}}th{{background:#F5F7F9}}</style></head>
 <body><h2>{_html.escape(res.lens_title or '데이터로 본 답')}</h2><p><b>질문</b> {_html.escape(res.question)}</p>
 <p><b>{_html.escape(res.lead)}</b></p><table><tr><th>지표</th><th>값</th><th>판정</th><th>순위</th><th>자료</th></tr>{rows}</table>
-<h3>요약</h3><ul>{''.join(f'<li>{_html.escape(s)}</li>' for s in res.sentences)}</ul>
+{('<h3>답변</h3><p>' + _html.escape((getattr(res, 'narrative', None) or {}).get('text', '')) + '</p>') if (getattr(res, 'narrative', None) or {}).get('ok') else ''}
+<h3>데이터 분석 근거</h3><ul>{''.join(f'<li>{_html.escape(s)}</li>' for s in res.sentences)}</ul>
 <h3>한계</h3><ul>{''.join(f'<li>{_html.escape(s)}</li>' for s in res.limits)}</ul>
 <p style="color:#6B7685">모든 수치는 제주데이터허브 원자료에서 코드로 계산했습니다. 판정은 제주 읍면동 사이 상대 위치입니다.</p></body></html>"""
 
@@ -411,16 +430,11 @@ with main:
             '<div class="jj-card"><p>① 질문을 로컬 모델이 정해진 어휘(검수 개념 162개)로 해석합니다.</p>'
             '<p>② 지식 그래프가 허브 자료 중 필요한 자료와 함께 쓸 수 있는 조합(같은 지역 단위·겹치는 기간)을 고릅니다.</p>'
             '<p>③ 코드가 제주 43개 읍면동 전체를 계산해 상대 위치(높음·보통·낮음)를 판정합니다. 숫자는 모델이 만들지 않습니다.</p>'
-            '<p>④ 진단 카드·그래프·쉬운 말 요약과 함께, 이번 답변에 쓴 자료를 데이터 지도로 보여 드립니다.</p></div>',
+            '<p>④ 로컬 모델이 질문과 계산 결과를 읽고 결론과 근거를 답합니다. 답변 속 숫자는 계산 결과와 대조해 확인합니다.</p>'
+            '<p>⑤ 진단 카드·그래프와 함께, 이번 답변에 쓴 자료를 데이터 지도로 보여 드립니다.</p></div>',
             unsafe_allow_html=True)
         section("제주 데이터 지도")
-        data_map.show_home(height=560)
-        st.caption("지식 그래프에 연결된 제주데이터허브 자료 지도입니다. 진한 남색은 분야, 파란 원은 자료, 연한 원은 자료로 알 수 있는 것과 지역 단위입니다. 자료를 누르면 설명과 허브 링크가 나옵니다.")
-        section("제주 데이터 지도 (이전 방식: 대표 자료 20개)")
-        data_map.show_home_classic(height=520)
-        st.caption("시안 비교용: 대표 자료 20개로 시작하고, 분야·개념 원을 누르면 관련 자료가 6개씩 펼쳐집니다.")
-        section("제주 데이터 지도 (합친 방식: 대표 20개 + 검색·분야 버튼)")
         data_map.show_home_hybrid(height=560)
-        st.caption("시안 비교용: 이전 방식의 보기를 기본으로, 검색창과 분야 버튼을 붙였습니다. 결과는 20개씩 보여 주고 '더 보기'로 늘립니다.")
+        st.caption("지식 그래프에 연결된 제주데이터허브 자료 지도입니다. 대표 자료 20개로 시작하고, 검색하거나 분야 버튼·원을 누르면 관련 자료가 펼쳐집니다. 자료를 누르면 설명과 허브 링크가 나옵니다.")
 
 dev_footer()

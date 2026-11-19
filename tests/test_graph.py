@@ -205,3 +205,24 @@ def test_industry_value_must_exist_in_data():
     from graph.interpret import industry_known
     assert industry_known("편의점") and industry_known("한식") and industry_known("빵")
     assert not industry_known("외국인") and not industry_known("버스")
+
+
+def test_narrative_number_check(monkeypatch):
+    """종합 답변(LLM): 계산 결과에 있는 숫자만 쓰면 통과, 없는 숫자를 쓰면 버리고 코드 문장을 쓴다."""
+    os.environ["LLM_MODE"] = "on"
+    from agent import llm
+    from graph import narrate
+    res = pp.run("애월이랑 한림 중에 관광객이 더 많이 오는 곳은 어디야?",
+                 _slots(places=["애월읍", "한림읍"], concepts=["방문인구"], analysis="compare"))
+    S = narrate._schema()
+    good = {"answer": "애월읍에 더 많이 옵니다.",
+            "reason": "2026-08 기준 일평균 방문지표가 애월읍 366,375, 한림읍 215,825로 애월읍이 더 높기 때문입니다."}
+    monkeypatch.setattr(llm, "chat", lambda *a, **k: (S.model_validate(good), {}))
+    rec = narrate.answer(res)
+    assert rec["ok"], rec["errors"]
+    assert rec["answer"].startswith("애월읍")
+    bad = {"answer": "애월읍에 더 많이 옵니다.", "reason": "애월읍에는 하루 약 12만 명이 방문해 한림읍보다 15만 명 많기 때문입니다."}
+    monkeypatch.setattr(llm, "chat", lambda *a, **k: (S.model_validate(bad), {}))
+    rec = narrate.answer(res)
+    os.environ["LLM_MODE"] = "off"
+    assert not rec["ok"] and "사실에 없는 숫자" in rec["errors"][0]

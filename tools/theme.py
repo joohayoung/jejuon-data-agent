@@ -145,6 +145,8 @@ p, li, .stMarkdown {{ font-size: 1rem; line-height: 1.65; }}
 .jj-interp .t {{ font-size:.85rem; color: var(--ink3); font-weight:700; margin-right:4px; }}
 .jj-chip2 {{ background:#fff; border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:.84rem; color: var(--ink2); }}
 .jj-chip2 b {{ color: var(--ink3); font-weight:700; margin-right:3px; }}
+.jj-answer .r {{ font-size:1.02rem; color: var(--ink); line-height:1.6; margin-top:6px; }}
+.jj-answer .by {{ font-size:.78rem; color: var(--sea-ui); font-weight:700; margin-top:6px; }}
 .jj-why {{ color: var(--ink3); font-size:.85rem; margin: -4px 0 6px; }}
 .jj-section {{ font-size:1.25rem; font-weight:800; color: var(--ink); margin: 26px 0 10px; display:flex; align-items:center; gap:8px; }}
 .jj-section:before {{ content:""; width:6px; height:20px; border-radius:3px; background: var(--tang); display:inline-block; }}
