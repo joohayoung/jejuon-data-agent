@@ -5,3 +5,9 @@ metrics/
 data/graph/api_cache.sqlite
 data/graph/file_cache.sqlite
 data/graph/raw/
+
+개발문서_v2_정확도개선.md
+A_B_통합_개발문서.md
+데이터지도_코드/
+데이터지도_예시.png
+eval/interpret_report*.md
