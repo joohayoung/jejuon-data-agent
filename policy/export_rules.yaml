@@ -1,0 +1,96 @@
+# 제주빅데이터센터 데이터 반출 규칙 (PoC 적용용)
+#
+# 원문: 제주데이터허브 공지사항 「제주빅데이터센터 데이터 반출 정책」 (2026.09.01 개정)
+# 옮긴 범위: PoC 개발지시서 §6 "규칙 요약"을 옮긴 뒤, 2026-11-17에 허브 공지(정보공개 > 공지사항 22번,
+#           2026.10.30 게시, 첨부 "제주빅데이터센터 데이터 반출 기준.pdf" 10쪽)의 PDF 미리보기를 읽고 대조했다.
+#           (원문 파일은 내려받지 않고 화면으로만 읽었고, 원문 문구는 이 파일에 복사하지 않았다.)
+# 대조 결과: 아래 규칙은 원문과 일치. 원문에는 있고 지시서 요약에는 없던 항목을 notes에 추가했다.
+# 이번 PoC의 위치: 허브 데이터는 공개 데이터라 실제 반출 심사 대상이 아니다.
+#                  화면·문서에 "센터 반출 기준 적용 예시(허브 공개 데이터)"라고 표시한다.
+
+source:
+  title: 제주빅데이터센터 데이터 반출 정책
+  published_at: 제주데이터허브 공지사항
+  revised: "2026-09-01"
+  transcribed_from: PoC_개발지시서.md §6
+  verified_against_original: true
+  verified_at: "2026-11-17"
+
+display_label: "센터 반출 기준 적용 예시(허브 공개 데이터)"
+small_value_threshold: 10          # 단순집계에서 이 값 미만이 있으면 처리 필요
+small_value_label: "10 미만"        # 범주 처리 표기
+citation_format: "제주빅데이터센터, {dataset}({period})"
+
+groups:
+  restricted:
+    label: 제한 데이터군
+    providers: [비씨카드, SKT, KT, 나이스지니데이타, 한국기업데이터, 탐나는전, 데이터웨이]  # 원문 표의 제공기관과 같음
+    examples: [카드, 유동인구, 외식업 POS, 기업정보]
+    rules:
+      raw: 불가                     # 원본·발췌
+      simple_aggregate: 조건부       # 10 미만 값이 없을 때만 가능. 범주·삭제·비식별 처리 중 하나
+      applied_aggregate: 가능        # 증감률·비율·순위·범주·지수·모델 결과
+      visualization: 조건부          # png·jpg만. 그림 안 수치는 위 기준
+      text_or_spreadsheet: 불가      # csv, txt, xlsx 등은 원칙적으로 불가
+    allowed_image_formats: [png, jpg, jpeg]
+    treatments: [범주 처리, 삭제 처리, 비식별 처리]
+    commercial_note: 영리 목적 사용 시 제공기관과 협의 필요
+  open:
+    label: 개방 데이터군
+    providers: [티머니, 교통정보센터, 제주특별자치도, 농업기술원, 환경관리공단]
+    examples: [버스, 교통량, 와이파이, 날씨, 쓰레기]
+    rules:
+      raw: 가능
+      simple_aggregate: 가능
+      applied_aggregate: 가능
+      visualization: 가능
+      text_or_spreadsheet: 가능
+    commercial_note: 영리 목적 사용 시 제공기관과 협의 필요
+
+common:
+  require_source_and_reason: true   # 결과물마다 출처(원본 데이터 명칭)와 활용 사유. 빠지면 재요청·반려될 수 있음
+  code_sample_output_forbidden: true  # 소스코드에 데이터 샘플 출력(head() 등)이 있으면 반출 불가
+  code_sample_patterns:
+    - '\.head\('
+    - '\.tail\('
+    - '\.sample\('
+    - '\bdisplay\('
+    - '\.to_string\('
+    - '\.iloc\[\s*:\s*\d+\s*\]'
+
+# 원문에 있고 지시서 요약에 없던 항목(2026-11-17 대조에서 추가)
+notes:
+  - "원본 제공이 불가한 데이터는 동·구 등 제공 단위의 총합·평균 같은 통계처리 데이터도 반출 불가가 원칙이며, 분석결과보고서·그림파일(차트·지도) 반출을 장려한다 → 이 PoC는 결과물을 응용집계(비율·순위·증감률)와 png로 구성"
+  - "위치(점) 데이터는 위치 자체를 속성값으로 보므로, 영역 안의 위치 개수(예: 점포 수)는 단순집계로 본다"
+  - "직접 작성한 보고서·데이터 안에 반출 불가 원본이 들어 있으면 반출 불가"
+  - "소스코드에 데이터 샘플 확인용 출력 결과가 포함되면 반출 불가(예: data.head())"
+  - "반출 신청 자료는 보편적인 확장자를 권장하며, 심사자가 확인하기 어려우면 반려될 수 있음"
+  - "참고자료: 데이터명세서·반출정책은 외부 공개라 반출 가능, 데이터안심구역 지침·파일설명서는 반출 불가"
+  - "심사 결과는 최대 5일(평균 3일) 안에 이메일·문자로 통보, 승인·부분승인·반려"
+
+# 데이터별 적용 (지시서 §6 표)
+datasets:
+  card_emd:   {group: restricted, center_equivalent: "카드(1-08 등)"}
+  card_jeju:  {group: restricted, center_equivalent: 카드}
+  menu_sales: {group: restricted, center_equivalent: 외식업 POS}
+  pop_kr:     {group: restricted, center_equivalent: "유동인구(SKT·KT)"}
+  bus_use:    {group: open, center_equivalent: "버스 이용(티머니·교통정보센터, 개방 데이터군 예시: 버스)"}
+  pop_fr:     {group: restricted, center_equivalent: "유동인구(SKT·KT)"}
+  restaurant:
+    group: open
+    center_equivalent: "LOCALDATA 인허가 정보(센터 제공기관 목록에 없음)"
+    always_forbidden_fields: [사업장명, 소재지전체주소, 도로명전체주소, 도로명우편번호]
+  store:
+    group: open
+    center_equivalent: 센터 제공기관 목록에 없음
+    always_forbidden_fields: [상호명, 주소, 지번주소, 도로명주소, 경도, 위도]
+
+# 반출 규칙 적용 결정 기록(원문은 위 source 참고. 원문에 없는 PoC 운영 결정은 여기에 날짜와 함께 적는다)
+decisions:
+  - date: "2026-11-18"
+    topic: 제한 데이터군 집계·시각화의 csv·xlsx(텍스트·스프레드시트) 신청
+    original: 원문은 텍스트·스프레드시트 형식을 제한 데이터군에서 '원칙적으로 불가'로 적음(예외 규정은 확인하지 못함)
+    decision: 데이터 단위 신청(tools/data_export.py)에서 불가로 막지 않고 '조건부'로 처리한다. 도민이 예외 사유를 적고 운영자가 판단한다.
+    unchanged: 원본·발췌는 형식과 관계없이 불가, 분석 결과물 신청(tools/export_check.py)의 형식 판정은 그대로(불가)
+    todo: 센터에 예외 규정이 실제로 있는지 담당자에게 확인하고, 없으면 불가로 되돌린다
+

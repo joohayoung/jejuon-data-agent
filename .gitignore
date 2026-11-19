@@ -5,9 +5,11 @@ metrics/
 data/graph/api_cache.sqlite
 data/graph/file_cache.sqlite
 data/graph/raw/
+data/app.db
+data/unanswered.jsonl
 
-°³¹ß¹®¼­_v2_Á¤È®µµ°³¼±.md
-A_B_ÅëÇÕ_°³¹ß¹®¼­.md
-µ¥ÀÌÅÍÁöµµ_ÄÚµå/
-µ¥ÀÌÅÍÁöµµ_¿¹½Ã.png
+ê°œë°œë¬¸ì„œ_v2_ì •í™•ë„ê°œì„ .md
+A_B_í†µí•©_ê°œë°œë¬¸ì„œ.md
+ë°ì´í„°ì§€ë„_ì½”ë“œ/
+ë°ì´í„°ì§€ë„_ì˜ˆì‹œ.png
 eval/interpret_report*.md

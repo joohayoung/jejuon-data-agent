@@ -226,3 +226,17 @@ def test_narrative_number_check(monkeypatch):
     rec = narrate.answer(res)
     os.environ["LLM_MODE"] = "off"
     assert not rec["ok"] and "사실에 없는 숫자" in rec["errors"][0]
+
+
+def test_narrative_rejects_empty_answer(monkeypatch):
+    """'...?'처럼 내용 없는 답은 숫자 검사를 통과해도 버린다."""
+    os.environ["LLM_MODE"] = "on"
+    from agent import llm
+    from graph import narrate
+    res = pp.run("애월이랑 한림 중에 관광객이 더 많이 오는 곳은 어디야?",
+                 _slots(places=["애월읍", "한림읍"], concepts=["방문인구"], analysis="compare"))
+    S = narrate._schema()
+    monkeypatch.setattr(llm, "chat", lambda *a, **k: (S.model_validate({"answer": "...?", "reason": "...? (2026-08 기준)"}), {}))
+    rec = narrate.answer(res)
+    os.environ["LLM_MODE"] = "off"
+    assert not rec["ok"] and any("내용이 없음" in e for e in rec["errors"])

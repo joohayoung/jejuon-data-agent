@@ -74,7 +74,7 @@ def facts(res: pp.Result) -> list[str]:
         if not res.places and getattr(m, "asked", False):
             v = m.values.dropna().sort_values(ascending=False)
             if len(v) >= 3:
-                out.append(f"  {m.name} 상위 3곳: " + ", ".join(f"{a} {pp.fmt(float(x), m.unit, m.digits)}" for a, x in v.head(3).items()))
+                out.append(f"  {m.name} 상위 3곳: " + ", ".join(f"{a} {pp.fmt(float(x), m.unit, m.digits)}" for a, x in v.iloc[0:3].items()))
         if m.trend is not None and len(m.trend) >= 2:
             a, b = float(m.trend.iloc[0]), float(m.trend.iloc[-1])
             ch = f" ({(b / a - 1) * 100:+.1f}%)" if a else ""
@@ -98,11 +98,20 @@ def _nums(text: str) -> set[str]:
     return out
 
 
-def check(answer: str, allowed_text: str) -> list[str]:
-    """답변 속 숫자 중 사실·질문에 없는 것, 추천·결정 문장."""
+HANGUL = re.compile(r"[가-힣]")
+
+
+def check(answer: str, allowed_text: str, reason: str | None = None) -> list[str]:
+    """답변 속 숫자 중 사실·질문에 없는 것, 추천·결정 문장, 내용 없는 답('...?' 등)."""
     bad = sorted(_nums(answer) - _nums(allowed_text))
     errs = [f"사실에 없는 숫자 {', '.join(bad)}"] if bad else []
     errs += [f"추천·결정 표현 '{b}'" for b in pp.BANNED if b in answer]
+    if reason is not None:
+        head = answer[: max(0, len(answer) - len(reason))]
+        if len(HANGUL.findall(head)) < 4:
+            errs.append("결론 문장에 내용이 없음")
+        if len(HANGUL.findall(reason)) < 10 or not (_nums(reason) & _nums(allowed_text)):
+            errs.append("근거 문장에 계산 결과(숫자)가 없음")
     return errs
 
 
@@ -128,7 +137,7 @@ def answer(res: pp.Result) -> dict:
             break
         ans, why = out.answer.strip(), out.reason.strip()
         text = f"{ans} {why}"
-        errs = check(text, allowed)
+        errs = check(text, allowed, reason=why)
         tries.append({"text": text, "errors": errs})
         rec.update(text=text, answer=ans, reason=why, errors=errs, ok=not errs)
         if not errs:

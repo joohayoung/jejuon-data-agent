@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import html as _html
-import io
 import re
 from pathlib import Path
 
@@ -23,7 +22,7 @@ from graph import narrate
 from graph import pipeline as pp
 from graph import interpret as it
 from graph.interpret import interpret, normalize_place
-from tools import data_map
+from tools import data_export, data_map, export_check, export_flow
 from tools.theme import CSS, badge, esc
 
 ROOT = Path(__file__).resolve().parent
@@ -33,7 +32,6 @@ EXAMPLES = ["애월에 카페가 너무 많을까요? 한림보다 경쟁이 심
             "성산에 게스트하우스 많아?",
             "애월 방문객이 요즘 늘고 있어?"]
 PLOTLY_CFG = {"displaylogo": False, "displayModeBar": False}
-RESTRICTED = re.compile(r"카드|매출|POS|유동인구|통신|와이파이|결제|내비")
 
 st.set_page_config(page_title="JEJU:ON · 제주 데이터 동네상담소", page_icon="🍊", layout="wide")
 st.markdown(CSS, unsafe_allow_html=True)
@@ -145,6 +143,9 @@ def run(q: str, slots: dict):
     detail += f" → 사용 {slots}" + (f" / 가드: {'; '.join(rec['guards'])}" if rec.get("guards") else "")
     res.log.insert(0, {"stage": "질문 해석", "by": rec.get("by", "모델"), "sec": rec.get("sec", 0), "detail": detail})
     ss["res"], ss["ask"], ss["pending"] = res, None, None
+    ss["data_req_res"] = None  # 새 답변이면 반출 신청 화면도 새로
+    if res.status == "held" or slots.get("unsupported"):
+        export_flow.log_unanswered(q, res.lead, slots)  # 운영자 화면 '운영 현황'에서 확인
 
 
 # ---------------- 해석 확인·고치기 ----------------
@@ -341,29 +342,131 @@ table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #E2E7ED;padd
 <p style="color:#6B7685">모든 수치는 제주데이터허브 원자료에서 코드로 계산했습니다. 판정은 제주 읍면동 사이 상대 위치입니다.</p></body></html>"""
 
 
+# ---------------- 원문 데이터 반출 신청 (흐름 5~9, 팀원 jeju-analyst-poc에서 옮김) ----------------
+
+def show_request_status(rec: dict, prefix: str = ""):
+    """도민이 보는 반출 신청 상태: 신청 → 운영자 점검 → 결과(승인된 원문 데이터는 허브 페이지로 연결)."""
+    section(f"반출 신청 상태 · {rec['id']}")
+    now = {"대기": 2}.get(rec["status"], 3)
+    cells = "".join(f'<div class="jj-step {"now" if i == now else ("done" if i < now else "")}"><span class="n">{i}</span>{esc(n)}</div>'
+                    for i, n in enumerate(["신청 완료", "운영자 점검", "결과 확인"], 1))
+    st.markdown(f'<div class="jj-steps">{cells}</div>', unsafe_allow_html=True)
+    if rec["status"] == "대기":
+        st.markdown('<div class="jj-note">운영자가 점검하고 있어요. 점검이 끝나면 여기에서 승인된 원문 데이터를 확인할 수 있습니다. '
+                    '(실제 센터 심사는 최대 5일, 평균 3일 안에 이메일·문자로 통보)</div>', unsafe_allow_html=True)
+    else:
+        label = {"승인": "🟢 승인", "부분승인": "🟠 부분 승인", "반려": "🔴 반려"}[rec["status"]]
+        st.markdown(f'<div class="jj-note"><b>{label}</b> · 점검 완료 {esc(rec["decided_at"])}'
+                    + (f" · 운영자 메모: {esc(rec['admin_note'])}" if rec["admin_note"] else "") + "</div>", unsafe_allow_html=True)
+    st.write("")
+    for i, it_ in enumerate(rec["items"]):
+        d = it_["decision"]
+        state = {"동의": "🟢 반출 승인", "제외": "🔴 제외"}.get(d, "🟡 점검 중")
+        c = st.columns([3, 1.2, 1.4])
+        c[0].markdown(f"**{esc(it_['name'])}**<br><span class='jj-caption'>{esc(it_['집계 유형'])} · {esc(', '.join(it_['데이터군']))}</span>",
+                      unsafe_allow_html=True)
+        c[1].markdown(state)
+        if it_.get("scope"):
+            c[0].caption(f"범위: {it_['scope']}")
+        if d == "동의" and rec["status"] in ("승인", "부분승인"):
+            dv = data_export.deliver(it_)
+            if dv["mode"] == "link":
+                c[2].link_button("원문 데이터 열기", dv["url"], use_container_width=True)
+                c[0].caption(dv["note"])
+            elif dv["mode"] == "download":
+                c[2].download_button("내려받기", dv["data"], file_name=dv["name"], mime=dv["mime"],
+                                     key=f"{prefix}mdl_{rec['id']}_{i}", use_container_width=True)
+            else:
+                c[0].caption(dv["note"])
+        elif d == "제외":
+            c[2].caption(f"사유: {it_['exclude_reason']}")
+    if rec["status"] != "대기":
+        st.download_button("📄 반출 승인 내역서", data_export.approval_statement(rec).encode("utf-8"),
+                           file_name=f"반출승인내역서_{rec['id']}.md", key=f"{prefix}stmt_{rec['id']}")
+        st.caption("승인된 항목의 ‘원문 데이터 열기’를 누르면 제주데이터허브의 해당 데이터 페이지로 이동합니다. "
+                   "허브와 연동하면 이 자리에서 원문을 바로 내려받도록 바꿀 수 있습니다.")
+    if rec["status"] == "대기" and st.button("🔄 상태 새로고침", key=f"{prefix}rf_{rec['id']}"):
+        st.rerun()
+
+
+def show_data_export(prefill_hub: list[int] | None = None, prefix: str = "tab", question: str | None = None,
+                     area: str | None = None):
+    """도민이 허브 데이터 목록에서 반출하고 싶은 원문 데이터를 고르고 신청하는 화면(데이터 단위 신청)."""
+    section("원문 데이터 반출 신청")
+    st.markdown('<div class="jj-note">분석 결과 그림이 아니라 <b>제주데이터허브 원문 데이터</b>를 신청합니다(기본은 원본·발췌, 필요하면 집계·그림으로 바꿀 수 있음). '
+                '반출 규칙으로 먼저 점검해 보고, 운영자가 데이터마다 동의 여부를 정합니다. 제한 데이터군(카드·유동인구 등)은 원본은 안 되고, '
+                '그림(png)·응용집계는 가능하며, csv·xlsx는 원칙적으로 불가라 예외 사유를 적으면 운영자가 판단합니다(조건부).</div>',
+                unsafe_allow_html=True)
+    key = f"data_req_{prefix}"
+    rid = ss.get(key)
+    if rid and export_flow.load(rid):
+        show_request_status(export_flow.load(rid), prefix)
+        if st.button("새 반출 신청 작성", key=f"{prefix}_new_data_req"):
+            ss[key] = None
+            st.rerun()
+        return
+    with st.expander("반출 형태별 가능 여부 안내", expanded=False):
+        st.dataframe(pd.DataFrame(data_export.rules_table()), hide_index=True, use_container_width=True)
+    opts = data_export.options()
+    by_label = {o["label"]: o for o in opts}
+    want = data_export.option_ids_for_hub(prefill_hub or [])
+    default = [o["label"] for o in opts if o["id"] in want]
+    st.caption(f"제주데이터허브 데이터 {len(opts):,}개를 모두 신청할 수 있습니다. 승인되면 허브의 해당 데이터 페이지로 연결되고, "
+               "허브와 연동하면 원문을 바로 내려받도록 바꿀 수 있습니다(이 데모는 원문 반출 권한이 없어 링크로 연결).")
+    picked = st.multiselect("반출하고 싶은 데이터 (제주데이터허브 데이터 목록)", list(by_label), default=default, key=f"{prefix}_picked",
+                            placeholder="데이터 이름으로 검색하세요 (예: 유동인구, 상가, 버스)")
+    purpose = st.text_input("활용 사유 (반출 신청서에 들어감)", value=ss.get("purpose", "창업 준비 근거 자료"), key=f"{prefix}_purpose")
+    ss["purpose"] = purpose
+    items = []
+    for n, lab in enumerate(picked):
+        o = by_label[lab]
+        with st.container(border=True):
+            st.markdown(f"**{esc(o['name'])}** · {esc(data_export.GROUP_LABEL[o['group']])} · 수록 기간 {esc(o.get('period') or '-')} · "
+                        f"[허브 {o['hub_id']}번 페이지]({data_export.HUB_VIEW_URL.format(hub_id=o['hub_id'])})")
+            c = st.columns([1.3, 0.8, 1.6])
+            form = c[0].selectbox("반출 형태", list(data_export.FORMS), index=0, key=f"{prefix}_de_form_{n}_{o['id']}")
+            fmt = c[1].selectbox("파일 형식", data_export.FORMATS, index=data_export.FORMATS.index("csv"), key=f"{prefix}_de_fmt_{n}_{o['id']}")
+            scope = c[2].text_input("범위(기간·지역·항목)", placeholder="예) 2025-06~2026-08, 애월읍, 월별 합계", key=f"{prefix}_de_scope_{n}_{o['id']}")
+            pc = data_export.precheck(o, form, fmt, scope, purpose)
+            if pc.get("예외 필요"):
+                exc = st.text_input("예외 사유 (제한 데이터군의 csv·xlsx는 원칙적으로 불가 — 왜 필요한지 적어 주세요)",
+                                    key=f"{prefix}_de_exc_{n}_{o['id']}")
+                pc = data_export.precheck(o, form, fmt, scope, purpose, exc)
+            st.markdown(f"사전 점검: {badge(pc['사전 판정'])} " + esc(" / ".join(pc["사전 이유"])), unsafe_allow_html=True)
+            if pc["처리"] != ["없음"]:
+                st.caption("필요한 처리: " + ", ".join(pc["처리"]))
+            items.append(pc)
+    if items:
+        ok = sum(i["사전 판정"] != "불가" for i in items)
+        st.markdown(f"**{len(items)}건 중 반출 가능(조건부 포함) {ok}건, 불가 {len(items) - ok}건** — 불가는 운영자가 동의할 수 없어 자동으로 제외됩니다.")
+        if st.button("📤 원문 데이터 반출 신청하기", type="primary", key=f"{prefix}_submit_data_req"):
+            rec = data_export.create(items, purpose, question=question, area=area)
+            ss[key] = rec["id"]
+            ss["view_req"] = rec["id"]
+            st.rerun()
+
+
 def show_export(res: pp.Result):
-    section("반출 점검")
-    restricted = any(RESTRICTED.search(s["title"]) for m in res.metrics for s in m.sources)
-    small = any(m.measures and m.measures[0].op == "count" and (m.values.dropna() < 10).any() for m in res.metrics if not m.reason)
-    items = [
-        ("결과 리포트(HTML)", "응용집계·문장", "가능", "집계 결과와 출처만 담음(원본 행·상호·주소 없음)"),
-        ("읍면동별 결과 표(CSV)", "단순·응용집계",
-         "조건부" if (restricted or small) else "가능",
-         ("제한 데이터군(카드·유동인구 등) 기반 표는 운영자 확인 필요" if restricted else "")
-         + (" · 10 미만 값은 '10 미만'으로 처리" if small else "") or "공개 데이터 집계"),
-        ("원본 데이터", "원본", "불가" if restricted else "조건부", "원본은 센터 반출 절차를 따름"),
-    ]
-    st.markdown("".join(f'<div class="jj-card" style="margin-bottom:6px">{badge(p)} <b>{esc(n)}</b> · {esc(k)} — '
-                        f'<span style="color:#6B7685">{esc(w)}</span></div>' for n, k, p, w in items), unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    c1.download_button("결과 리포트 내려받기(HTML)", report_html(res).encode("utf-8"), "제주데이터상담_결과.html", "text/html")
-    tb = pd.DataFrame({m.name: m.values for m in res.metrics if not m.reason})
-    if not tb.empty:
-        tb = tb.map(lambda v: "10 미만" if isinstance(v, float) and 0 < v < 10 and small else v)
-        buf = io.StringIO()
-        tb.to_csv(buf, encoding="utf-8")
-        c2.download_button("읍면동별 결과 표(CSV)", buf.getvalue().encode("utf-8-sig"), "읍면동별_결과.csv", "text/csv",
-                           disabled=restricted, help="제한 데이터군 기반 표는 운영자 확인 후 반출합니다." if restricted else None)
+    """이 답에 쓴 제주데이터허브 원문 데이터 목록 + 원문 반출 신청(흐름 5). 결과 리포트(HTML)는 따로 내려받는다."""
+    section("이 답에 쓴 제주데이터허브 데이터")
+    R = export_check.rules()
+    st.markdown(f'<span class="jj-caption">{esc(R["display_label"])} · 규칙: {esc(R["source"]["title"])}'
+                f'({esc(R["source"]["revised"])} 개정, 원문 대조 {esc(R["source"].get("verified_at") or "-")} 완료)</span>',
+                unsafe_allow_html=True)
+    opts = {o["id"]: o for o in data_export.options()}
+    rows = [opts[f"hub:{h}"] for h in res.used if f"hub:{h}" in opts]
+    if rows:
+        st.markdown('<div class="jj-note"><b>이 답을 만드는 데 쓴 허브 원문 데이터입니다.</b> 원문을 가져가려면 아래에서 반출을 신청하세요. '
+                    '운영자가 데이터마다 가능 여부를 점검하고, 승인되면 이 화면에서 확인할 수 있습니다.</div>', unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame([{"허브 번호": o["hub_id"], "데이터": o["name"], "수록 기간": o["period"],
+                                    "데이터군": data_export.GROUP_LABEL[o["group"]],
+                                    "허브 페이지": data_export.HUB_VIEW_URL.format(hub_id=o["hub_id"])} for o in rows]),
+                     hide_index=True, use_container_width=True,
+                     column_config={"허브 페이지": st.column_config.LinkColumn("허브 페이지", display_text="열기")})
+    st.download_button("결과 리포트 내려받기(HTML)", report_html(res).encode("utf-8"), "제주데이터상담_결과.html", "text/html")
+    st.write("")
+    show_data_export([o["hub_id"] for o in rows], "res", question=res.question,
+                     area=", ".join(res.places) if res.places else None)
 
 
 # ---------------- 본문 ----------------
@@ -384,6 +487,13 @@ with left:
             start(ex)
     if go_ and q.strip():
         start(q.strip())
+    st.divider()
+    with st.expander("내 반출 신청 확인", expanded=bool(ss.get("view_req"))):
+        rq = st.text_input("신청 번호", value=ss.get("view_req") or "", placeholder="REQ-20261119-…")
+        if st.button("상태 보기", use_container_width=True):
+            ss["view_req"] = rq.strip()
+            ss["show_req"] = True
+    st.page_link("pages/admin.py", label="운영자 화면(반출 점검)", icon="🛡")
     removed = (ss.get("interp") or {}).get("removed") or []
     if ss.get("res") and not ss.get("ask") and removed:
         with notice:
@@ -422,6 +532,20 @@ with left:
                     st.json(raw)
 
 with main:
+  tab_main, tab_data = st.tabs(["질문·분석", "원문 데이터 반출 신청"])
+  with tab_data:
+    show_data_export(prefix="tab")
+  with tab_main:
+    if ss.get("show_req") and ss.get("view_req"):
+        try:
+            _rec = export_flow.load(ss["view_req"])
+        except ValueError:
+            _rec = None
+        if _rec:
+            show_request_status(_rec, "view")
+            st.divider()
+        else:
+            st.markdown('<div class="jj-warn">그 번호의 반출 신청을 찾지 못했습니다.</div>', unsafe_allow_html=True)
     if ss.get("res"):
         show_result(ss["res"])
     else:
@@ -431,7 +555,8 @@ with main:
             '<p>② 지식 그래프가 허브 자료 중 필요한 자료와 함께 쓸 수 있는 조합(같은 지역 단위·겹치는 기간)을 고릅니다.</p>'
             '<p>③ 코드가 제주 43개 읍면동 전체를 계산해 상대 위치(높음·보통·낮음)를 판정합니다. 숫자는 모델이 만들지 않습니다.</p>'
             '<p>④ 로컬 모델이 질문과 계산 결과를 읽고 결론과 근거를 답합니다. 답변 속 숫자는 계산 결과와 대조해 확인합니다.</p>'
-            '<p>⑤ 진단 카드·그래프와 함께, 이번 답변에 쓴 자료를 데이터 지도로 보여 드립니다.</p></div>',
+            '<p>⑤ 진단 카드·그래프와 함께, 이번 답변에 쓴 자료를 데이터 지도로 보여 드립니다.</p>'
+            '<p>⑥ 답에 쓴 제주데이터허브 원문 데이터의 반출을 신청하면, 운영자가 점검해 승인한 원문을 허브에서 확인할 수 있습니다.</p></div>',
             unsafe_allow_html=True)
         section("제주 데이터 지도")
         data_map.show_home_hybrid(height=560)

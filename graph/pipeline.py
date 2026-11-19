@@ -239,7 +239,7 @@ def judge(m: en.Metric, area: str | None) -> dict:
         row["판정"] = "제주 전체"
         return row
     if area not in v.index:
-        top = ", ".join(f"{a}({fmt(float(x), m.unit, m.digits)})" for a, x in v.sort_values(ascending=False).head(5).items())
+        top = ", ".join(f"{a}({fmt(float(x), m.unit, m.digits)})" for a, x in v.sort_values(ascending=False).iloc[0:5].items())
         row["사유"] = (f"이 자료에는 {area} 값이 없습니다. 자료에 들어 있는 읍면동은 {len(v)}곳뿐입니다"
                       + (f": {top}" if top else "") + ".")
         return row
@@ -494,7 +494,7 @@ def run(question: str, slots: dict, offline: bool | None = None) -> Result:
             v = m.values.dropna().sort_values(ascending=False)
             if m.reason or len(v) < 3:
                 continue
-            top = ", ".join(f"{a} {fmt(float(x), m.unit, m.digits)}" for a, x in v.head(3).items())
+            top = ", ".join(f"{a} {fmt(float(x), m.unit, m.digits)}" for a, x in v.iloc[0:3].items())
             res.sentences.insert(0, f"{m.name}{josa(m.name, '이가')} 높은 읍면동: {top} (제주 {len(v)}곳 중, {m.period}).")
             if not res.lead:
                 res.lead = f"{m.name}{josa(m.name, '이가')} 가장 높은 곳은 {v.index[0]}({fmt(float(v.iloc[0]), m.unit, m.digits)})이고, 이어서 {v.index[1]}, {v.index[2]} 순입니다. ({m.period})"
