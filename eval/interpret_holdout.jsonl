@@ -1,0 +1,15 @@
+{"q": "조천읍에 빵집이 몇 군데야?", "kind": "개수", "places": ["조천읍"], "concepts_any": [["점포수"]], "filters": {"업종": "빵"}, "analysis": ["count", "lookup"], "period": null, "ask": false, "unsupported": false}
+{"q": "남원에 펜션 많이 있어?", "kind": "개수", "places": ["남원읍"], "concepts_any": [["숙박시설수", "점포수"]], "filters": {}, "analysis": ["count", "lookup", "ratio"], "period": null, "ask": false, "unsupported": false, "filters_ok": [{}, {"업종": "펜션"}, {"업종": "숙박"}]}
+{"q": "아라동에 피자집 내면 경쟁 셀까?", "kind": "밀도", "places": ["아라동"], "concepts_any": [["점포수"]], "filters": {"업종": "피자"}, "analysis": ["ratio"], "period": null, "ask": false, "unsupported": false}
+{"q": "한경면 편의점 너무 많은 거 아냐?", "kind": "밀도", "places": ["한경면"], "concepts_any": [["점포수"]], "filters": {"업종": "편의점"}, "analysis": ["ratio"], "period": null, "ask": false, "unsupported": false}
+{"q": "연동이랑 노형동 중 카페 경쟁 덜한 곳은?", "kind": "비교", "places": ["연동", "노형동"], "concepts_any": [["점포수"]], "filters": {"업종": "카페"}, "analysis": ["compare", "ratio", "rank"], "period": null, "ask": false, "unsupported": false}
+{"q": "중문동하고 대정읍 중에 외국인 더 많이 오는 데는?", "kind": "비교", "places": ["중문동", "대정읍"], "concepts_any": [["외국인방문인구"]], "filters": {}, "analysis": ["compare", "rank"], "period": null, "ask": false, "unsupported": false}
+{"q": "최근 서귀포 정방동 방문객 줄어드는 추세야?", "kind": "추이", "places": ["정방동"], "concepts_any": [["방문인구"]], "filters": {}, "analysis": ["trend"], "period": null, "ask": false, "unsupported": false}
+{"q": "2026년 4월부터 7월까지 애월 외국인 방문 어떻게 변했어?", "kind": "추이", "places": ["애월읍"], "concepts_any": [["외국인방문인구"]], "filters": {}, "analysis": ["trend"], "period": ["2026-04-01", "2026-07-31"], "ask": false, "unsupported": false}
+{"q": "관광객 가장 적게 오는 읍면동은 어디야?", "kind": "순위", "places": [], "concepts_any": [["방문인구"]], "filters": {}, "analysis": ["rank"], "period": null, "ask": false, "unsupported": false}
+{"q": "치킨집이 제일 많은 동네 알려줘", "kind": "순위", "places": [], "concepts_any": [["점포수"]], "filters": {"업종": "치킨"}, "analysis": ["rank", "count"], "period": null, "ask": false, "unsupported": false}
+{"q": "화북동에 전기차 충전기 몇 대 있어?", "kind": "생활시설", "places": ["화북동"], "concepts_any": [["충전기수"]], "filters": {}, "analysis": ["count", "lookup"], "period": null, "ask": false, "unsupported": false}
+{"q": "노형동 교통사고 자주 나?", "kind": "생활시설", "places": ["노형동"], "concepts_any": [["교통사고건수"]], "filters": {}, "analysis": ["lookup", "count", "rank"], "period": null, "ask": false, "unsupported": false}
+{"q": "내년 여름에 함덕 관광객 몇 명 올지 알려줘", "kind": "불가", "places": ["조천읍"], "concepts_any": [], "filters": {}, "analysis": ["trend", "lookup"], "period": null, "ask": false, "unsupported": true}
+{"q": "고마워", "kind": "잡담", "places": [], "concepts_any": [], "filters": {}, "analysis": ["lookup"], "period": null, "ask": false, "unsupported": false}
+{"q": "용담동 카페 몇 개야?", "kind": "모호", "places": [], "concepts_any": [["점포수"]], "filters": {"업종": "카페"}, "analysis": ["count", "lookup"], "period": null, "ask": true, "unsupported": false}

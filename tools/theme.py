@@ -80,8 +80,14 @@ p, li, .stMarkdown {{ font-size: 1rem; line-height: 1.65; }}
 }}
 .jj-hero:after {{ content:""; position:absolute; right:-60px; top:-60px; width:220px; height:220px;
   border-radius:50%; background: radial-gradient(circle, rgba(221,100,24,.55) 0%, rgba(221,100,24,0) 70%); }}
+.jj-brand {{ display:flex; align-items:center; gap:11px; margin: 10px 0 12px; position:relative; z-index:1; }}
+.jj-brand .logo svg {{ display:block; border-radius:13px; box-shadow: 0 0 0 2px rgba(255,255,255,.55), 0 4px 12px rgba(0,0,0,.18); }}
+.jj-brand b {{ font: 800 1.75rem Arial, sans-serif; letter-spacing:-1.5px; color:#fff; }}
+.jj-brand b span {{ color:#a9ede1; }}
+.jj-brand i {{ height:20px; border-left:1px solid rgba(255,255,255,.45); }}
+.jj-brand em {{ font-style:normal; font-weight:700; font-size:1rem; color: rgba(255,255,255,.92); letter-spacing:-.02em; }}
 .jj-hero .eyebrow {{ font-size: .85rem; opacity: .85; letter-spacing: .04em; }}
-.jj-hero h1 {{ color:#fff; font-size: 1.85rem; font-weight: 800; margin: 2px 0 6px; }}
+.jj-hero h1 {{ color:#fff; font-size: 1.6rem; font-weight: 800; margin: 2px 0 6px; letter-spacing:-.02em; }}
 .jj-hero p {{ color: rgba(255,255,255,.9); margin: 0 0 12px; font-size: 1rem; }}
 .jj-chip {{ display:inline-block; padding: 4px 11px; margin: 0 6px 6px 0; border-radius: 999px;
   background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); font-size: .82rem; color:#fff; }}
@@ -130,6 +136,16 @@ p, li, .stMarkdown {{ font-size: 1rem; line-height: 1.65; }}
 .jj-note {{ background: var(--sea-soft); border-left: 4px solid var(--sea-ui); padding: 10px 14px; border-radius: 8px;
   color: var(--ink); font-size:.92rem; }}
 .jj-warn {{ background:#FFF3D6; border-left:4px solid #C98500; padding:10px 14px; border-radius:8px; color:#5C3B00; font-size:.92rem; }}
+.jj-answer {{ background: var(--sea-soft); border:1px solid rgba(0,111,143,.25); border-left:6px solid var(--sea-ui);
+  padding:18px 22px; border-radius:14px; margin-bottom:14px; }}
+.jj-answer .a {{ font-size:1.22rem; font-weight:800; color: var(--ink); line-height:1.55; letter-spacing:-.01em; }}
+.jj-answer .n {{ color: var(--ink2); font-size:.88rem; margin-top:8px; line-height:1.5; }}
+.jj-answer .w {{ color:#5C3B00; background:#FFF3D6; border-radius:8px; padding:6px 10px; font-size:.9rem; margin-top:10px; font-weight:600; }}
+.jj-interp {{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin: -2px 0 8px; }}
+.jj-interp .t {{ font-size:.85rem; color: var(--ink3); font-weight:700; margin-right:4px; }}
+.jj-chip2 {{ background:#fff; border:1px solid var(--line); border-radius:999px; padding:3px 10px; font-size:.84rem; color: var(--ink2); }}
+.jj-chip2 b {{ color: var(--ink3); font-weight:700; margin-right:3px; }}
+.jj-why {{ color: var(--ink3); font-size:.85rem; margin: -4px 0 6px; }}
 .jj-section {{ font-size:1.25rem; font-weight:800; color: var(--ink); margin: 26px 0 10px; display:flex; align-items:center; gap:8px; }}
 .jj-section:before {{ content:""; width:6px; height:20px; border-radius:3px; background: var(--tang); display:inline-block; }}
 .jj-caption {{ color: var(--ink3); font-size:.85rem; }}

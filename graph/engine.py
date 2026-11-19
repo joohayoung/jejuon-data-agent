@@ -120,7 +120,9 @@ class Measure:
     snapshot: bool = False
     period: tuple[str, str] | None = None
     data_end: str | None = None
-    notes: list = field(default_factory=list)
+    notes: list = field(default_factory=list)       # 화면에 보여 줄 설명
+    dev_notes: list = field(default_factory=list)   # 그래프 컬럼 메모(개발용, '분석 과정 기록'에만)
+    data_start: str | None = None
     data_key: str | None = None
     api_params: list = field(default_factory=list)
 
@@ -292,10 +294,10 @@ def choose_measure(concept: str, filters: dict[str, str], level: str | None = "�
         if not ok:
             continue
         end = d.get("auto_update_verified_end") or d.get("period_end")
-        notes = []
+        notes, dev_notes = [], []
         for c in cols:
             if c["name"] in ([column] if column else []) + ([pcol] if pcol else []) and c.get("note"):
-                notes.append(f"{c['name']}: {c['note']}")
+                dev_notes.append(f"{c['name']}: {c['note']}")
         if pgrain == "법정동":
             notes.append("법정동 값을 행정동으로 변환(그래프의 법정동→행정동 비중 사용)")
         if pgrain == "주소":
@@ -303,6 +305,7 @@ def choose_measure(concept: str, filters: dict[str, str], level: str | None = "�
         m = Measure(concept=concept, dataset=hid, title=d["title"], access=str(d["access"]), op=op, column=column,
                     unit=unit, place_column=pcol, place_grain=pgrain, time_column=time_col if op in ("daily_mean",) else time_col,
                     filters=fcols, snapshot=snap, data_end=str(end)[:10] if end else None, notes=notes,
+                    dev_notes=dev_notes, data_start=str(d.get("period_start"))[:10] if d.get("period_start") else None,
                     data_key=d.get("data_key"), api_params=d.get("api_params") or [])
         return m, cands, rejected
     return None, cands, rejected
@@ -320,6 +323,9 @@ def default_period(m: Measure, asked: tuple[str, str] | None, anchor: str | None
     ref = anchor or m.data_end
     if not ref:
         return None
+    # 기준일(다른 자료의 시점)이 이 자료 기간 밖이면 기준일을 버리고 이 자료의 최신 달을 쓴다
+    if anchor and m.data_end and (ref[:10] > m.data_end or (m.data_start and ref[:10] < m.data_start)):
+        ref = m.data_end
     d = dt.date.fromisoformat(ref[:10])
     start = d.replace(day=1)
     nxt = (start + dt.timedelta(days=32)).replace(day=1)
@@ -503,6 +509,15 @@ def joinable(a: int, b: int) -> dict | None:
         return {"space_key": "같은 자료", "overlap": ["", ""]}
     e = kg().joinable(f"ds:{a}", f"ds:{b}")
     return e
+
+
+def expected_months(end: str, months: int) -> list[str]:
+    d = dt.date.fromisoformat(end[:10])
+    y, mo, out = d.year, d.month, []
+    for _ in range(months):
+        out.append(f"{y:04d}-{mo:02d}")
+        y, mo = (y, mo - 1) if mo > 1 else (y - 1, 12)
+    return sorted(out)
 
 
 def monthly_trend(m: Measure, place: str, months: int = 6, end: str | None = None, offline: bool = False) -> pd.Series:

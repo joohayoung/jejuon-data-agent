@@ -15,20 +15,20 @@ lenses:
       - name: "{업종} 점포 수"
         num: {concept: 점포수, filter: 업종}
         need_filter: true
-      - name: "경쟁 밀도(방문지표 1만당 {업종} 점포)"
+      - name: "경쟁 밀도(방문 1만당 {업종} 점포)"
         num: {concept: 점포수, filter: 업종}
         den: {concept: 방문인구}
         scale: 10000
-        unit: "점포/방문지표 1만"
+        unit: "곳(방문 1만당)"
         digits: 2
         need_filter: true
       - name: "수요 규모(일평균 방문지표)"
         num: {concept: 방문인구}
-      - name: "주민 대비 점포(거주지표 1만당 {업종} 점포)"
+      - name: "주민 대비 점포(거주 1만당 {업종} 점포)"
         num: {concept: 점포수, filter: 업종}
         den: {concept: 거주인구}
         scale: 10000
-        unit: "점포/거주지표 1만"
+        unit: "곳(거주 1만당)"
         digits: 2
         need_filter: true
       - name: "외국인/내국인 방문지표 비율"

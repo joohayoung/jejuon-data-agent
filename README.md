@@ -1,4 +1,4 @@
-# 제주 데이터 상담 에이전트 — 통합 버전 (1119_merge)
+# JEJU:ON (제주온) · 제주 데이터 동네상담소
 
 jeju-agent(A)의 **지식 그래프 데이터 선별**과 jeju-analyst-poc(B)의 **화면·판정·로컬 LLM 호출**을 합친 범용 버전입니다.
 창업 질문만이 아니라 제주데이터허브 자료로 답할 수 있는 질문이면 같은 방식으로 진단표를 만듭니다.
@@ -68,6 +68,31 @@ ollama pull qwen3:4b
 오프라인으로 jeju-agent 기대값을 재현합니다: 애월 카페 228·한림 152, 방문지표 1만당 8.32·11.41, 한림 편의점 59,
 2026-08 노형동 230,606.48·연동 246,548.48, 지표 단위 합산 차단, 746 매장수를 지역 분모로 쓰지 않음, 미래 예측 질문 보류.
 
+v2(정확도 개선) 시험 10개를 더해 모두 17개입니다: 시점 맞추기(746은 2021-05), 비교·추이 결론 문장, 개념 해설,
+내부 메모 비노출, 그래프 자동 선택, 단순 질문의 관점 지표 2개 제한, 오래된 자료 경고, 모호한 동 이름 되묻기, 조건 2개 교차.
+
+## 해석 확인 (v2.1)
+
+- 결과 맨 위 '이렇게 이해했어요' 줄에 모델 해석(지역·측정값·나누는 기준·분석·기간·조건 방향)을 보여 주고, '해석 고치기'에서 바꿔 다시 계산할 수 있습니다.
+- 코드 확인 단계가 질문에 근거 없는 값을 지우면, 질문 칸 아래에 무엇을 뺐는지 알려 줍니다.
+- 모델 재점검: 1차 해석 뒤 같은 모델이 질문과 해석을 비교해 빠진 항목을 고칩니다(`agent/prompts/graph_review.md`). 기본은 꺼져 있습니다(평가 44문항: 켬 75%·9.1초, 끔 77%·3.6초). `.env`에 `INTERPRET_REVIEW=on`으로 켭니다.
+- 업종 값은 업종 대응표나 상가 자료(허브 793)의 업종 이름에 있어야 남깁니다('외국인'·'버스' 같은 값은 지우고 알림).
+
+## 모델 해석 평가 (v2)
+
+```
+.venv\Scripts\python scripts\eval_interpret.py
+.venv\Scripts\python scripts\eval_interpret.py --no-review
+```
+
+`--cases eval/interpret_holdout.jsonl`은 프롬프트 수정에 쓰지 않은 별도 질문 15개(확인용)입니다. 프롬프트 예시는 `interpret_cases.jsonl`의 틀린 문항을 보고 고치므로, 실제 성능은 holdout 점수로 판단합니다.
+
+`--no-review`는 재점검 없이 1차 해석만 잽니다. 두 결과를 비교해 재점검을 계속 쓸지 정합니다.
+
+`eval/interpret_cases.jsonl`(44문항: 개수·밀도·비교·추이·순위·생활시설·답할 수 없는 요구·잡담·오타·모호 지명)을 로컬 모델로 해석해
+지명·개념·구분값·분석 유형 정확도를 재고 `eval/interpret_report.md`에 저장합니다. 프롬프트를 바꿀 때마다 돌리고,
+틀린 유형은 프롬프트 예시로 고칩니다(코드로 해석을 보정하지 않음). 목표: 전체 85%, 지명·개념 각 90%.
+
 ## 폴더
 
 ```
@@ -77,7 +102,10 @@ agent/prompts/graph_interpret.md   해석 프롬프트
 graph/interpret.py      ① 해석 + 코드 가드 + LLM off 폴백
 graph/lenses.yaml       ② 분석 관점(렌즈)
 graph/engine.py         ③④ 자료 선택·템플릿 계획·검증·조회·집계
-graph/pipeline.py       ⑤ 지표 구성·판정·사실 문장
+graph/pipeline.py       ⑤ 지표 구성·판정·사실 문장·질문 유형별 결론(lead_for)·조건 교차(cross_table)
+graph/concept_notes.yaml   개념 해설(일상 말 ↔ 자료 뜻, 결론 아래 표시)
+graph/charts.py         그래프와 자동 선택 규칙(choose_charts)
+eval/                   모델 해석 평가 세트·보고서
 graph/charts.py         그래프(plotly)
 graph/access.py         허브 API·파일 접근
 graph/kg.py             지식 그래프 조회(A의 kg_query)
